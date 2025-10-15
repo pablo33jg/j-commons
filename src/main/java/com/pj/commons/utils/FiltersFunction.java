@@ -2,6 +2,8 @@ package com.pj.commons.utils;
 
 
 import com.pj.commons.dto.Filter;
+import com.pj.commons.dto.Filters;
+import com.pj.commons.exception.FilterNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,6 +86,11 @@ public class FiltersFunction {
                 .filterType(FILTER_DATA_TYPE.date)
                 .dateFrom(value)
                 .build();
+    }
+
+    public static Filter getFilter(String name, Filters filtroWrapper) {
+        return filtroWrapper.getFiltros().stream().filter(f -> f.getName().equals(name)).findAny()
+                .orElseThrow(() -> new FilterNotFoundException(String.format("No se encontro el filtro %s", name)));
     }
 
     public static void printFilters(List<Filter> filters){
