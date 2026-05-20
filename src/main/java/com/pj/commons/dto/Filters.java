@@ -1,6 +1,8 @@
 package com.pj.commons.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.pj.commons.utils.FiltersFunction;
+import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,6 +24,8 @@ public class Filters {
     private Integer size;
     private List<Filter> filtros;
     private List<SortModel> sortModel;
+    @NotNull
+    private FiltersFunction.SQL_OPERATORS mainOperator;
 
     public String toString(){
         var filtros = this.filtros.stream().map(Filter::toString).collect(Collectors.joining(", "));

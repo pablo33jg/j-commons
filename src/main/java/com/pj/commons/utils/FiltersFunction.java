@@ -116,4 +116,9 @@ public class FiltersFunction {
         UUID,
         bool
     }
+
+    public enum SQL_OPERATORS {
+        AND,
+        OR
+    }
 }

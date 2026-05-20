@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -42,7 +43,7 @@ public class SqlMaker {
         if (filters.getFiltros() != null)
             for (Filter filter : filters.getFiltros()) {
                 if (!where.isEmpty())
-                    where += " AND ";
+                    where += String.format(" %s ", filters.getMainOperator());
                 where += createSentence(filter);//filtro.getName() + " " + tipoOperador(filtro.getType()) + " :" + filtro.getName().replace(".", "");
             }
         if (!where.isEmpty())
@@ -95,10 +96,9 @@ public class SqlMaker {
                 String type = getType(filter.getName());
                 if (type.endsWith("Long"))
                     query.setParameter(filter.getName().replace(".", ""), filter.getLong(filter.getFilter()));
-                else if (type.endsWith("Double")){
+                else if (type.endsWith("Double")) {
                     query.setParameter(filter.getName().replace(".", ""), filter.getDouble(filter.getFilter()));
-                }
-                else if (type.endsWith("Integer")) {
+                } else if (type.endsWith("Integer")) {
                     /*if (filtro.getType().equals("equals")) {
                         query.setParameter(filtro.getName().replace(".", ""), filtro.getLong(filtro.getFilter()).intValue());
                     }*/
@@ -109,23 +109,38 @@ public class SqlMaker {
                     }
                 } else if (type.endsWith("Boolean"))
                     query.setParameter(filter.getName().replace(".", ""), filter.getBoolean(filter.getFilter()));
-                else if (type.toUpperCase(Locale.ROOT).endsWith("UUID")){
-                    if(filter.getType().equals(FiltersFunction.FILTER_TYPE.in)){
+                else if (type.toUpperCase(Locale.ROOT).endsWith("UUID")) {
+                    if (filter.getType().equals(FiltersFunction.FILTER_TYPE.in)) {
                         query.setParameter(filter.getName().replace(".", ""), filter.getTxParameters());
-                    }else{
+                    } else {
                         query.setParameter(filter.getName().replace(".", ""), UUID.fromString(filter.getFilter()));
                     }
-                }
-                else if (filter.getType().equals(FiltersFunction.FILTER_TYPE.inRange)) {
-                    query.setParameter(filter.getName().replace(".", "") + "From", filter.getDateFrom());
-                    query.setParameter(filter.getName().replace(".", "") + "To", filter.getDateTo());
+                } else if (filter.getType().equals(FiltersFunction.FILTER_TYPE.inRange)) {
+                    if(type.endsWith("OffsetDateTime")){
+                        log.info("Filtro tipo offsetdatetime");
+                        var from = filter.getDateFrom().atZone(ZoneId.systemDefault())
+                                .toOffsetDateTime();
+                        var to = filter.getDateTo().atZone(ZoneId.systemDefault())
+                                .toOffsetDateTime();
+                        query.setParameter(filter.getName().replace(".", "") + "From", from);
+                        query.setParameter(filter.getName().replace(".", "") + "To", to);
+                    }else if(type.endsWith("LocalDate")){
+                        log.info("Filtro tipo LocalDate");
+                        var from = filter.getDateFrom().toLocalDate();
+                        var to = filter.getDateTo().toLocalDate();
+                        query.setParameter(filter.getName().replace(".", "") + "From", from);
+                        query.setParameter(filter.getName().replace(".", "") + "To", to);
+                    }else {
+                        query.setParameter(filter.getName().replace(".", "") + "From", filter.getDateFrom());
+                        query.setParameter(filter.getName().replace(".", "") + "To", filter.getDateTo());
+                    }
                 } else {
                     if (filter.getFilterType().equals(FiltersFunction.FILTER_DATA_TYPE.date)) {
                         var classType = getClassType(filter.getName());
                         log.info("El tipo obtenido en un filtro tipo {} es {}, {}|{}", FiltersFunction.FILTER_DATA_TYPE.date, classType, filter.getType(), filter.getDateFrom());
-                        if(classType == LocalDate.class){
+                        if (classType == LocalDate.class) {
                             query.setParameter(filter.getName().replace(".", ""), filter.getDateFrom().toLocalDate());
-                        }else {
+                        } else {
                             query.setParameter(filter.getName().replace(".", ""), filter.getDateFrom());
                         }
                     } else {
@@ -134,7 +149,7 @@ public class SqlMaker {
                             if (!field.isEnum()) {
                                 query.setParameter(filter.getName().replace(".", ""), tipoParameter(filter.getType()).replace(":param", filter.getFilter()));
                             } else {
-                                query.setParameter(filter.getName().replace(".", ""), getFilter(field, filter));
+                                query.setParameter(filter.getName().replace(".", ""), this.getFilter(field, filter));
                             }
                         }
                         if (filter.getType().equals(FiltersFunction.FILTER_TYPE.in)) {
@@ -145,24 +160,34 @@ public class SqlMaker {
             }
     }
 
+    private Class<?> getBaseEnum(String className, String field) throws ClassNotFoundException, NoSuchFieldException {
+        Class<?> entityClass = Class.forName(className);
+        Field statusField = entityClass.getDeclaredField(field);
+        return statusField.getType();
+    }
+
     private Enum<?> getFilter(Class<?> field, Filter filter) {
         try {
-            Class<? extends Enum> enumClass = field.asSubclass(Enum.class);
+            ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
+            //Class<? extends Enum> enumClass = field.asSubclass(Enum.class);
+            Class<? extends Enum> enumClass = (Class<? extends Enum>) Class.forName(field.getName(), true, appClassLoader);
             // Obtener los valores del enum
             Enum<?>[] enumConstants = enumClass.getEnumConstants();
 
-            if(filter.getFilterType().equals(FiltersFunction.FILTER_DATA_TYPE.number)) {
+            if (filter.getFilterType().equals(FiltersFunction.FILTER_DATA_TYPE.number)) {
                 int value = Integer.valueOf(filter.getFilter());
 
                 var method = enumClass.getMethod("fromValue", int.class);
                 Enum<?> result = (Enum<?>) method.invoke(enumClass, value);
                 return result;
-            }else{
+            } else {
                 var method = enumClass.getMethod("fromValue", String.class);
                 Enum<?> result = (Enum<?>) method.invoke(enumClass, filter.getFilter());
                 return result;
             }
         } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
         //return null;

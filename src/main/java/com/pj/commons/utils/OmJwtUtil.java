@@ -20,19 +20,19 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 
-@Component
+//@Component
 public class OmJwtUtil implements Serializable {
 
-    @Value("${app.token.user}")
+    @Value("${app.token.user:0}")
     private long JWT_TOKEN_USER;
 
-    @Value("${app.token.pre}")
+    @Value("${app.token.pre:0}")
     private long JWT_TOKEN_PRE;
 
-    @Value("${app.token.refresh}")
+    @Value("${app.token.refresh:0}")
     private long JWT_TOKEN_REFRESH;
 
-    @Value("${app.token.process}")
+    @Value("${app.token.process:0}")
     private long JWT_TOKEN_PROCESS;
 
     @Value("${app.jwt.secret}")

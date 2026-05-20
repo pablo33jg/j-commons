@@ -1,6 +1,6 @@
 package com.pj.commons.utils;
 
-import com.pj.commons.dto.UsuariosBean;
+import com.pj.commons.dto.Usuario;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -18,7 +18,7 @@ import java.util.function.Function;
 //@Component
 public class JwtUtil implements Serializable {
 
-    @Value("${app.jwt.seconds-expire}")
+    @Value("${app.jwt.seconds-expire:20000}")
     private long JWT_TOKEN_VALIDITY;
 
     @Value("${app.jwt.secret}")
@@ -29,9 +29,9 @@ public class JwtUtil implements Serializable {
         return getClaimFromToken(token, Claims::getSubject);
     }
 
-    public UsuariosBean getClaim(String token){
+    public Usuario getClaim(String token){
         final Claims claims = getAllClaimsFromToken(token.replace(",ROLE_ANONYMOUS", ""));
-        return UsuariosBean.builder()
+        return Usuario.builder()
                 .userName(claims.getSubject())
                 .id(claims.get("id", Integer.class))
                 .almacenId(claims.get("almacenId", Integer.class))
