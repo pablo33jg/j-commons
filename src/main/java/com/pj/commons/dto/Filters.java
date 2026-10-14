@@ -26,9 +26,12 @@ public class Filters {
     private List<SortModel> sortModel;
     @NotNull
     private FiltersFunction.SQL_OPERATORS mainOperator;
+    private String timezone;
 
     public String toString(){
-        var filtros = this.filtros.stream().map(Filter::toString).collect(Collectors.joining(", "));
-        return String.format("p -> %d, s -> %d, %n f -> %s", page, size, filtros);
+        var filtros = this.filtros != null
+                ? this.filtros.stream().map(Filter::toString).collect(Collectors.joining(", "))
+                : "";
+        return String.format("p -> %d, s -> %d, tz -> %s, %n f -> %s", page, size, timezone, filtros);
     }
 }

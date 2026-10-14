@@ -40,6 +40,7 @@ public class Filter {
     /*AND, OR*/
     private String operator;
     private List<Filter> condiciones;
+    private String timezone;
 
     @JsonDeserialize(using = CustomJsonDateTimeDeserializer.class, as = LocalDateTime.class)
     @JsonSerialize(using = CustomJsonDateTimeSerializer.class, as = LocalDateTime.class)

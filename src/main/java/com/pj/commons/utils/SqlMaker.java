@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.UUID;
@@ -116,26 +117,29 @@ public class SqlMaker {
                     query.setParameter(filter.getName().replace(".", ""), filter.getBoolean(filter.getFilter()));
                 else if (type.toUpperCase(Locale.ROOT).endsWith("UUID")) {
                     if (filter.getType().equals(FiltersFunction.FILTER_TYPE.in)) {
-                        query.setParameter(filter.getName().replace(".", ""), filter.getTxParameters());
+                        query.setParameter(filter.getName().replace(".", "") + "In", filter.getTxParameters());
                     } else {
                         query.setParameter(filter.getName().replace(".", ""), UUID.fromString(filter.getFilter()));
                     }
                 } else if (filter.getType().equals(FiltersFunction.FILTER_TYPE.inRange)) {
-                    if(type.endsWith("OffsetDateTime")){
-                        log.info("Filtro tipo offsetdatetime");
-                        var from = filter.getDateFrom().atZone(ZoneId.systemDefault())
-                                .toOffsetDateTime();
-                        var to = filter.getDateTo().atZone(ZoneId.systemDefault())
-                                .toOffsetDateTime();
+                    if (type.endsWith("OffsetDateTime")) {
+                        ZoneId clientZone = getClientZoneId(filter);
+                        log.info("Filtro tipo offsetdatetime con timezone: {}", clientZone);
+                        var from = filter.getDateFrom() != null
+                                ? filter.getDateFrom().atZone(clientZone).toOffsetDateTime()
+                                : null;
+                        var to = filter.getDateTo() != null
+                                ? filter.getDateTo().atZone(clientZone).toOffsetDateTime()
+                                : null;
                         query.setParameter(filter.getName().replace(".", "") + "From", from);
                         query.setParameter(filter.getName().replace(".", "") + "To", to);
-                    }else if(type.endsWith("LocalDate")){
+                    } else if (type.endsWith("LocalDate")) {
                         log.info("Filtro tipo LocalDate");
-                        var from = filter.getDateFrom().toLocalDate();
-                        var to = filter.getDateTo().toLocalDate();
+                        var from = filter.getDateFrom() != null ? filter.getDateFrom().toLocalDate() : null;
+                        var to = filter.getDateTo() != null ? filter.getDateTo().toLocalDate() : null;
                         query.setParameter(filter.getName().replace(".", "") + "From", from);
                         query.setParameter(filter.getName().replace(".", "") + "To", to);
-                    }else {
+                    } else {
                         query.setParameter(filter.getName().replace(".", "") + "From", filter.getDateFrom());
                         query.setParameter(filter.getName().replace(".", "") + "To", filter.getDateTo());
                     }
@@ -144,7 +148,10 @@ public class SqlMaker {
                         var classType = getClassType(filter.getName());
                         log.info("El tipo obtenido en un filtro tipo {} es {}, {}|{}", FiltersFunction.FILTER_DATA_TYPE.date, classType, filter.getType(), filter.getDateFrom());
                         if (classType == LocalDate.class) {
-                            query.setParameter(filter.getName().replace(".", ""), filter.getDateFrom().toLocalDate());
+                            query.setParameter(filter.getName().replace(".", ""), filter.getDateFrom() != null ? filter.getDateFrom().toLocalDate() : null);
+                        } else if (classType == OffsetDateTime.class) {
+                            ZoneId clientZone = getClientZoneId(filter);
+                            query.setParameter(filter.getName().replace(".", ""), filter.getDateFrom() != null ? filter.getDateFrom().atZone(clientZone).toOffsetDateTime() : null);
                         } else {
                             query.setParameter(filter.getName().replace(".", ""), filter.getDateFrom());
                         }
@@ -164,6 +171,23 @@ public class SqlMaker {
                     }
                 }
             }
+    }
+
+    private ZoneId getClientZoneId(Filter filter) {
+        String tz = (filter != null && filter.getTimezone() != null && !filter.getTimezone().isBlank())
+                ? filter.getTimezone()
+                : (filters != null && filters.getTimezone() != null && !filters.getTimezone().isBlank()
+                ? filters.getTimezone()
+                : null);
+
+        if (tz != null) {
+            try {
+                return ZoneId.of(tz);
+            } catch (Exception e) {
+                log.warn("Invalid timezone '{}', falling back to system default: {}", tz, e.getMessage());
+            }
+        }
+        return ZoneId.systemDefault();
     }
 
     private Class<?> getBaseEnum(String className, String field) throws ClassNotFoundException, NoSuchFieldException {
