@@ -43,7 +43,8 @@ public class OmCommons {
         SUPPLIES,
         INTERNAL_CONSIGNMENT,
         EXTERNAL_CONSIGNMENT,
-        TRANSFORMATION;
+        TRANSFORMATION,
+        TRANSIT;
 
         public static STORES_TYPE fromValue(String value){
             for(STORES_TYPE type: STORES_TYPE.values()){

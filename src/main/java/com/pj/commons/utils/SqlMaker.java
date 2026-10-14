@@ -15,11 +15,16 @@ import java.time.ZoneId;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
+
 //@Component
 public class SqlMaker {
 
     public Filters filters;
     public String clase;
+
+    @Value("${app.database.like-operator:LIKE}")
+    private String likeOperator;
 
     private final Logger log = LoggerFactory.getLogger(SqlMaker.class);
 
@@ -57,7 +62,7 @@ public class SqlMaker {
             sentence = conditionsSentence(filter);
         }
         if (filter.getFilterType().equals(FiltersFunction.FILTER_DATA_TYPE.text) || filter.getFilterType().equals(FiltersFunction.FILTER_DATA_TYPE.bool)) {
-            sentence = filter.getName() + " " + tipoOperador(filter.getType()) + " :" + filter.getName().replace(".", "");
+            sentence = filter.getName() + " " + tipoOperador(filter.getType()) + " :" + filter.getName().replace(".", "") + (filter.getType().equals(FiltersFunction.FILTER_TYPE.in) ? "In" : "");
         }
         return sentence;
     }
@@ -80,7 +85,7 @@ public class SqlMaker {
                 conditions += filter.getName() + " " + tipoOperador(filter.getType()) + " :" + nameWithoutDot(filter.getName()) + "From AND :" + nameWithoutDot(filter.getName()) + "To";
             } else {
                 //if (filtro.getType().equals("equals") || filtro.getType().equals("in")) {
-                conditions += filter.getName() + " " + tipoOperador(filter.getType()) + " :" + nameWithoutDot(filter.getName());
+                conditions += filter.getName() + " " + tipoOperador(filter.getType()) + " :" + nameWithoutDot(filter.getName()) + (filter.getType().equals(FiltersFunction.FILTER_TYPE.in) ? "In" : "");
             }
         }
         return conditions;
@@ -103,7 +108,7 @@ public class SqlMaker {
                         query.setParameter(filtro.getName().replace(".", ""), filtro.getLong(filtro.getFilter()).intValue());
                     }*/
                     if (filter.getType().equals(FiltersFunction.FILTER_TYPE.in)) {
-                        query.setParameter(filter.getName().replace(".", ""), filter.getInParameters());
+                        query.setParameter(filter.getName().replace(".", "") + "In", filter.getInParameters());
                     } else {
                         query.setParameter(filter.getName().replace(".", ""), filter.getLong(filter.getFilter()).intValue());
                     }
@@ -144,16 +149,17 @@ public class SqlMaker {
                             query.setParameter(filter.getName().replace(".", ""), filter.getDateFrom());
                         }
                     } else {
-                        if (filter.getType().equals(FiltersFunction.FILTER_TYPE.equals) || filter.getType().equals(FiltersFunction.FILTER_TYPE.contains)) {
+                        if (filter.getType().equals(FiltersFunction.FILTER_TYPE.equals) || filter.getType().equals(FiltersFunction.FILTER_TYPE.contains) || filter.getType().equals(FiltersFunction.FILTER_TYPE.notEqual)) {
                             Class<?> field = isEnum(filter.getName());
                             if (!field.isEnum()) {
                                 query.setParameter(filter.getName().replace(".", ""), tipoParameter(filter.getType()).replace(":param", filter.getFilter()));
                             } else {
                                 query.setParameter(filter.getName().replace(".", ""), this.getFilter(field, filter));
                             }
-                        }
-                        if (filter.getType().equals(FiltersFunction.FILTER_TYPE.in)) {
-                            query.setParameter(filter.getName().replace(".", ""), filter.getTxParameters());
+                        } else if (filter.getType().equals(FiltersFunction.FILTER_TYPE.in)) {
+                            query.setParameter(filter.getName().replace(".", "") + "In", filter.getTxParameters());
+                        } else {
+                            query.setParameter(filter.getName().replace(".", ""), filter.getFilter());
                         }
                     }
                 }
@@ -337,7 +343,7 @@ public class SqlMaker {
     private String tipoOperador(FiltersFunction.FILTER_TYPE tipo) {
         switch (tipo) {
             case contains:
-                return "like";
+                return likeOperator;//"like";
             case inRange:
                 return " BETWEEN ";
             case in:
